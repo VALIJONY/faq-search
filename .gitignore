@@ -1,0 +1,10 @@
+.env
+__pycache__/
+.pytest_cache/
+*.pyc
+tests/
+pytest.ini
+requirements-dev.txt
+evaluate.py
+manual_eval.py
+results/

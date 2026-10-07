@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+aiogram>=3
+httpx
+pandas
+openpyxl
+psycopg[binary]
+qdrant-client
+ollama
+python-dotenv

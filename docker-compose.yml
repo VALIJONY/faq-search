@@ -1,0 +1,103 @@
+# Ishga tushirish:  docker compose up -d --build
+# Ollama hostda ishlaydi (standart). O'z Ollama'ngiz bo'lmasa:  docker compose --profile ollama up -d --build
+#   (bu holda .env da OLLAMA_HOST=http://ollama:11434 qo'ying)
+
+x-app-env: &app-env
+  DSN: postgresql://faq:faq@postgres:5432/faq
+  QDRANT_URL: http://qdrant:6333
+  OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+  EMBED_MODEL: ${EMBED_MODEL:-bge-m3}
+  MIN_SCORE: ${MIN_SCORE:-0.60}
+  MARGIN: ${MARGIN:-0.03}
+  TOP_K: ${TOP_K:-10}
+
+x-host-gateway: &host-gateway
+  - "host.docker.internal:host-gateway"   # konteynerdan hostdagi Ollama'ga chiqish uchun
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: faq
+      POSTGRES_PASSWORD: faq
+      POSTGRES_DB: faq
+    ports: ["55432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faq -d faq"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant
+    ports: ["6333:6333"]
+    volumes: [qdrant_data:/qdrant/storage]
+    healthcheck:   # image'da curl yo'q, shuning uchun bash orqali portni tekshiramiz
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Bir martalik: Excel/CSV -> Postgres, keyin Postgres -> Qdrant. Tugagach to'xtaydi.
+  indexer:
+    build: .
+    command: sh -c "python load_data.py && python build_index.py"
+    environment: *app-env
+    extra_hosts: *host-gateway
+    restart: "no"
+    depends_on:
+      postgres: {condition: service_healthy}
+      qdrant: {condition: service_healthy}
+      ollama-init: {condition: service_completed_successfully, required: false}  # faqat --profile ollama bilan
+
+  api:
+    build: .
+    environment: *app-env
+    extra_hosts: *host-gateway
+    ports: ["8001:8001"]
+    restart: unless-stopped
+    depends_on:
+      indexer: {condition: service_completed_successfully}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8001/health', timeout=5)"]
+      interval: 10s
+      timeout: 8s
+      retries: 6
+      start_period: 10s
+
+  bot:
+    build: .
+    command: python bot.py
+    env_file: .env          # BOT_TOKEN shu yerdan olinadi
+    environment:
+      API_URL: http://api:8001
+    restart: unless-stopped
+    depends_on:
+      api: {condition: service_healthy}
+
+  # --- Ixtiyoriy: o'z Ollama'si (faqat `--profile ollama` bilan ishga tushadi) ---
+  ollama:
+    profiles: [ollama]
+    image: ollama/ollama
+    volumes: [ollama_data:/root/.ollama]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama-init:   # bge-m3 modelini yuklab oladi (~1.2 GB), keyin tugaydi
+    profiles: [ollama]
+    image: ollama/ollama
+    entrypoint: ["ollama", "pull", "bge-m3"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama: {condition: service_healthy}
+    restart: "no"
+
+volumes:
+  pgdata:
+  qdrant_data:
+  ollama_data:
