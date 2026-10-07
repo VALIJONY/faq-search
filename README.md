@@ -161,19 +161,3 @@ Lekin test savollari shablon bo'yicha yasalgan paraphrase'lar, shuning uchun **b
 Ya'ni mavzuga oid savollarning ~79% to'g'ri javob yoki to'g'ri variantlar bilan qaytdi, ~18% ishonch bilan **noto'g'ri** javob oldi. Noto'g'rilari mavzusi yaqin javoblar edi (masalan "ta'til bermayapti" → "ish haqi kechiktirilsa"), ballari 0.70–0.81, shuning uchun chegara ularni ushlamaydi.
 
 **4. Servislar:** `docker compose up` dan keyin hamma servis healthy, Postgres'da 505/3048, Qdrant'da 3048 ta yozuv, `/ask` uch holatni ham to'g'ri qaytardi, `/health` hammasi ok. Bot tokensiz tekshirilmadi.
-
-## Cheklovlar
-
-- Mavzu yaqin, javob boshqa bo'lgan holatlar eng katta muammo; `MARGIN` faqat ballar deyarli teng bo'lganda ishlaydi.
-- `MIN_SCORE=0.60` kelishuv: mavzudan tashqari ba'zi savollarga javob berishi mumkin; 0.70 da esa haqiqiy savollarning bir qismi `not_found` bo'ladi.
-- Juda qisqa so'rovlar ("ta'til") kontekst bermaydi. Kirill yozuvdagi savol bitta sinovda ishladi, sistematik tekshirilmadi.
-- CPU'da model xotirada turganda so'rov ~0.06 s, model xotiradan chiqib ketsa birinchi so'rov sekin. Indekslash daqiqalar oladi.
-- Test to'plamlari kichik va tarafdor; ishonchli baho uchun real foydalanuvchi savollari kerak.
-
-## Keyingi qadamlar
-
-1. **Reranker** (masalan bge-reranker): yaqin javoblar muammosiga eng to'g'ridan-to'g'ri yechim.
-2. **Hybrid BM25 + vektor:** aniq so'zlar yo'qolib qolmasligi uchun.
-3. **Noaniq zonada LLM-as-judge:** ball 0.65–0.80 oralig'ida LLM faqat nomzodlardan birini tanlaydi (javob yozmaydi).
-4. **Foydalanuvchi feedback'i** ("foydali bo'ldimi?" tugmasi) asosida `MIN_SCORE` va `MARGIN` ni sozlash.
-5. **Monitoring:** `not_found` va `ambiguous` so'rovlarni yig'ish, bazada nima yetishmayotganini ko'rish.
